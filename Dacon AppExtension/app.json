@@ -1,0 +1,39 @@
+{
+  "id": "aa0bbb7d-bf43-4088-b3c1-0028f14e7ad1",
+  "name": "SMPC Extension Management",
+  "publisher": "SMPC",
+  "version": "1.0.0.0",
+  "brief": "",
+  "description": "Custom Extension",
+  "privacyStatement": "",
+  "EULA": "",
+  "help": "",
+  "url": "",
+  "logo": "",
+  "dependencies": [
+   {
+      "id": "25a9851d-b839-4163-8fd2-f7e922d0339d",
+      "publisher": "PASI",
+      "name": "Request Document System",
+      "version": "1.0.0.6"
+    }
+  ],
+  "screenshots": [],
+  "platform": "1.0.0.0",
+  "application": "24.0.0.0",
+  "idRanges": [
+    {
+      "from": 50100,
+      "to": 50149
+    }
+  ],
+  "resourceExposurePolicy": {
+    "allowDebugging": true,
+    "allowDownloadingSource": true,
+    "includeSourceInSymbolFile": true
+  },
+  "runtime": "13.0",
+  "features": [
+    "NoImplicitWith"
+  ]
+}
