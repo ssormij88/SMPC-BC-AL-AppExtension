@@ -11,6 +11,12 @@
   "url": "",
   "logo": "",
   "dependencies": [
+    {
+      "id": "abc622d1-0d07-40e3-9518-9a9adc77322a",
+      "name": "Philippine Localization",
+      "publisher": "PASI",
+      "version": "2.0.0.1"
+    }, 
    {
       "id": "25a9851d-b839-4163-8fd2-f7e922d0339d",
       "publisher": "PASI",
