@@ -248,35 +248,40 @@ codeunit 50102 EquityWebServices
     begin
         TempDimSetEntry.DELETEALL;
 
-        if BankCode <> '' then
+        if BankCode <> '' then begin
             TempDimSetEntry.INIT;
-        TempDimSetEntry.VALIDATE("Dimension Code", 'BANK');
-        TempDimSetEntry.VALIDATE("Dimension Value Code", BankCode);//Value 
-        TempDimSetEntry.INSERT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'BANK');
+            TempDimSetEntry.VALIDATE("Dimension Value Code", BankCode);//Value 
+            TempDimSetEntry.INSERT;
+        end;
 
-        if TranxType <> '' then
+        if TranxType <> '' then begin
             TempDimSetEntry.INIT;
-        TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');//Dimension Code
-        TempDimSetEntry.VALIDATE("Dimension Value Code", TranxType);//Value 
-        TempDimSetEntry.INSERT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');//Dimension Code
+            TempDimSetEntry.VALIDATE("Dimension Value Code", TranxType);//Value 
+            TempDimSetEntry.INSERT;
+        end;
 
-        if StockCode <> '' then
+        if StockCode <> '' then begin
             TempDimSetEntry.INIT;
-        TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');//Dimension Code
-        TempDimSetEntry.VALIDATE("Dimension Value Code", StockCode);//Value 
-        TempDimSetEntry.INSERT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');//Dimension Code
+            TempDimSetEntry.VALIDATE("Dimension Value Code", StockCode);//Value 
+            TempDimSetEntry.INSERT;
+        end;
 
-        if InvTranx <> '' then
+        if InvTranx <> '' then begin
             TempDimSetEntry.INIT;
-        TempDimSetEntry.VALIDATE("Dimension Code", 'INV_TRANX');//Dimension Code
-        TempDimSetEntry.VALIDATE("Dimension Value Code", InvTranx);//Value 
-        TempDimSetEntry.INSERT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'INV_TRANX');//Dimension Code
+            TempDimSetEntry.VALIDATE("Dimension Value Code", InvTranx);//Value 
+            TempDimSetEntry.INSERT;
+        end;
 
-        if APType <> '' then
+        if APType <> '' then begin
             TempDimSetEntry.INIT;
-        TempDimSetEntry.VALIDATE("Dimension Code", 'A/P TYPE');//Dimension Code
-        TempDimSetEntry.VALIDATE("Dimension Value Code", APType);//Value 
-        TempDimSetEntry.INSERT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'A/P TYPE');//Dimension Code
+            TempDimSetEntry.VALIDATE("Dimension Value Code", APType);//Value 
+            TempDimSetEntry.INSERT;
+        end;
 
         TempDimSetEntry.RESET;
         NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry);
@@ -367,8 +372,7 @@ codeunit 50102 EquityWebServices
         TempDimSetEntry.INSERT;
 
         TempDimSetEntry.RESET;
-        NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry); //get new DimSetID, after existing PO dimensions are modified
-
+        NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry);
         GenJournalLine."Dimension Set ID" := NewDimSetID;
         GenJournalLine."Line No." := GetLastLineNo(SourceCode, JournalBatchName) + 10000;
         GenJournalLine.INSERT(TRUE);
