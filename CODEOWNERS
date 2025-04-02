@@ -1,0 +1,10 @@
+##############################################################
+#
+# List of approvers/reviewers for AL Extension
+#
+##############################################################
+
+# Global rule:
+* @ssormij88 @winoe15
+
+/.github/CODEOWNERS @ssormij88
