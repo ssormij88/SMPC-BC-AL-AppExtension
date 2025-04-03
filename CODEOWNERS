@@ -5,14 +5,6 @@
 ##############################################################
 
 # Global rule:
-# all * @ssormij88 @winoe15
-
-# Global rule:
-@@Backend @ssormij88 @winoe15
-
-* @@Backend
-
-# At least one member of the Backend team must approve changes in AL code.
-Check(@@Backend >= 1)
-
+all * @ssormij88 @winoe15
+OverallCheck(1)
 /.github/CODEOWNERS @ssormij88
