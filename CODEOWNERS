@@ -8,11 +8,11 @@
 # all * @ssormij88 @winoe15
 
 # Global rule:
-@@@ALBackend @ssormij88 @winoe15
+@@@Backend @ssormij88 @winoe15
 
-* @@ALBackend
+* @@Backend
 
 # At least one member of the Backend team must approve changes in AL code.
-Check(@@ALBackend >= 1)
+Check(@@Backend >= 1)
 
 /.github/CODEOWNERS @ssormij88
