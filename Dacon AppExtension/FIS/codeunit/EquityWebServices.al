@@ -22,17 +22,17 @@ codeunit 50102 EquityWebServices
     begin
         JournalBatchName := BatchName;
         GenJnlTemplate.RESET;
-        GenJnlTemplate.GET('CASH RECEI');
+        GenJnlTemplate.GET('CASHRCPT');
 
         GenJournalBatch.RESET;
         GenJournalBatch.SETFILTER(Name, JournalBatchName);
-        GenJournalBatch.SETFILTER("Journal Template Name", 'CASH RECEI');
+        GenJournalBatch.SETFILTER("Journal Template Name", 'CASHRCPT');
         GenJournalBatch.SETFILTER("Bal. Account Type", FORMAT(GenJnlTemplate."Bal. Account Type"::"G/L Account"));
 
         IF NOT GenJournalBatch.FINDLAST THEN BEGIN
             GenJournalBatch.INIT;
             GenJournalBatch.Name := JournalBatchName;
-            GenJournalBatch."Journal Template Name" := 'CASH RECEI';
+            GenJournalBatch."Journal Template Name" := 'CASHRCPT';
             GenJournalBatch."Bal. Account Type" := GenJnlTemplate."Bal. Account Type"; //GL Account
 
             GenJournalBatch."No. Series" := GenJnlTemplate."No. Series";
@@ -45,7 +45,7 @@ codeunit 50102 EquityWebServices
         CLEAR(NoSeriesMgt);
 
         GenJournalLine.INIT;
-        GenJournalLine."Journal Template Name" := 'CASH RECEI';
+        GenJournalLine."Journal Template Name" := 'CASHRCPT';
         GenJournalLine."Journal Batch Name" := JournalBatchName;
         EVALUATE(xPostingDate, PostingDate);
         GenJournalLine."Posting Date" := xPostingDate;
@@ -120,7 +120,7 @@ codeunit 50102 EquityWebServices
         NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry); //get new DimSetID, after existing PO dimensions are modified
 
         GenJournalLine."Dimension Set ID" := NewDimSetID;
-        GenJournalLine."Line No." := GetLastLineNo('CASH RECEI', JournalBatchName) + 10000;
+        GenJournalLine."Line No." := GetLastLineNo('CASHRCPT', JournalBatchName) + 10000;
         GenJournalLine.INSERT(TRUE);
 
         EXIT(GenJournalLine."Document No.");
