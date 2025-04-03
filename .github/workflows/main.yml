@@ -15,8 +15,10 @@ jobs:
         uses: actions/checkout@v3 # Always checkout code
 
       - name: Check Reviews
-        uses: lm/codeowner-reviewer-check@v1.3.0 # Replace with the latest version
+        uses: lmnleaf/codeowner-reviewer-check@v1.0.0
         with:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
           min_reviewers: 1
           include_teams: false
+          issue-title: "Deploying to prod from dev"
+          issue-body: "Please approve or deny the deployment"
