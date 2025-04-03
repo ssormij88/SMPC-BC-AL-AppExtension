@@ -1,0 +1,22 @@
+name: Repo Activity
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  check_codeowner_reviews:
+    runs-on: ubuntu-latest
+    name: Codeowner Reviews
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3 # Always checkout code
+
+      - name: Check Reviews
+        uses: lm/codeowner-reviewer-check@v1.3.0 # Replace with the latest version
+        with:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          min_reviewers: 1
+          include_teams: false
