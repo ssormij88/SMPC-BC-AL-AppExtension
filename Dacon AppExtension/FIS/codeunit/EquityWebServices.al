@@ -101,20 +101,31 @@ codeunit 50102 EquityWebServices
         TempDimSetEntry.VALIDATE("Dimension Value Code", BankCode);//Value 
         TempDimSetEntry.INSERT;
 
-        TempDimSetEntry.INIT;
-        TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');//Dimension Code
-        TempDimSetEntry.VALIDATE("Dimension Value Code", TranxType);//Value 
-        TempDimSetEntry.INSERT;
+        if (AcctType <> 'Vendor') then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');//Dimension Code
+            TempDimSetEntry.VALIDATE("Dimension Value Code", TranxType);//Value 
+            TempDimSetEntry.INSERT;
+        end;
 
         TempDimSetEntry.INIT;
         TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');//Dimension Code
         TempDimSetEntry.VALIDATE("Dimension Value Code", StockCode);//Value 
         TempDimSetEntry.INSERT;
 
-        TempDimSetEntry.INIT;
-        TempDimSetEntry.Validate("Dimension Code", 'INV_TRANX');
-        TempDimSetEntry.Validate("Dimension Value Code", '102');
-        TempDimSetEntry.INSERT;
+        IF (AcctType = 'Vendor') and (Trans = 'SC') then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.Validate("Dimension Code", 'A/P TYPE');
+            TempDimSetEntry.Validate("Dimension Value Code", 'A/P - TRADE');
+            TempDimSetEntry.INSERT;
+        end;
+
+        if Trans in ['SI', 'SC'] then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.Validate("Dimension Code", 'INV_TRANX');
+            TempDimSetEntry.Validate("Dimension Value Code", '102');
+            TempDimSetEntry.INSERT;
+        end;
 
         TempDimSetEntry.RESET;
         NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry); //get new DimSetID, after existing PO dimensions are modified
