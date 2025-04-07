@@ -44,9 +44,9 @@ codeunit 50102 EquityWebServices
         GenJournalLine.INIT;
         GenJournalLine."Journal Template Name" := 'CASHRCPT';
         GenJournalLine."Journal Batch Name" := JournalBatchName;
-        EVALUATE(xPostingDate, PostingDate);
+        EVALUATE(xPostingDate, postingdate);
         GenJournalLine."Posting Date" := xPostingDate;
-        GenJournalLine."Account No." := AccountNo;
+        GenJournalLine."Account No." := accountno;
         GenJournalLine."Document Type" := GenJournalLine."Document Type"::Payment;
 
         IF documentno = '' THEN
@@ -54,10 +54,10 @@ codeunit 50102 EquityWebServices
             GenJournalLine."Document No." := NoSeriesMgt.GetNextNo('GJNL-RCPT', WORKDATE, TRUE);
 #pragma warning restore AL0432
         IF documentno <> '' THEN
-            GenJournalLine."Document No." := DocumentNo;
+            GenJournalLine."Document No." := documentno;
 
-        GenJournalLine."External Document No." := ExDocNo;
-        GenJournalLine.VALIDATE(GenJournalLine.Amount, Amount);
+        GenJournalLine."External Document No." := exdocno;
+        GenJournalLine.VALIDATE(GenJournalLine.Amount, amount);
 
         IF trans = 'CDC' THEN
             GenJournalLine."Bal. Account No." := '420004'
@@ -71,16 +71,13 @@ codeunit 50102 EquityWebServices
             GenJournalLine."Account Type" := GenJournalLine."Account Type"::"G/L Account"
         ELSE IF accttype = 'Vendor' THEN
             GenJournalLine."Account Type" := GenJournalLine."Account Type"::"Vendor";
-
         GenJournalLine."Bal. Account Type" := GenJournalLine."Bal. Account Type"::"G/L Account";//balancing account
 
         IF accttype = 'Vendor' then
             GenJournalLine."WHT Business Posting Group PHL" := 'V_CORP';
-
         IF accountno = '700008' then
             GenJournalLine."Gen. Prod. Posting Group" := 'GL';
-
-        GenJournalLine.Description := Particulars;
+        GenJournalLine.Description := particulars;
         OldDimSetID := GenJournalLine."Dimension Set ID";
 
         TempDimSetEntry.DELETEALL;
@@ -89,19 +86,19 @@ codeunit 50102 EquityWebServices
             TempDimSetEntry.VALIDATE("Dimension Code", 'BANK')
         ELSE IF trans IN ['CDI', 'SI'] THEN
             TempDimSetEntry.VALIDATE("Dimension Code", 'ACCOUNT NAME');
-        TempDimSetEntry.VALIDATE("Dimension Value Code", BankCode);
+        TempDimSetEntry.VALIDATE("Dimension Value Code", bankcode);
         TempDimSetEntry.INSERT;
 
         if (accttype <> 'Vendor') then begin
             TempDimSetEntry.INIT;
             TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');
-            TempDimSetEntry.VALIDATE("Dimension Value Code", TranxType);
+            TempDimSetEntry.VALIDATE("Dimension Value Code", tranxtype);
             TempDimSetEntry.INSERT;
         end;
 
         TempDimSetEntry.INIT;
         TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');
-        TempDimSetEntry.VALIDATE("Dimension Value Code", StockCode);
+        TempDimSetEntry.VALIDATE("Dimension Value Code", stockcode);
         TempDimSetEntry.INSERT;
 
         IF (accttype = 'Vendor') and (trans = 'SC') then begin
@@ -126,13 +123,13 @@ codeunit 50102 EquityWebServices
         EXIT(GenJournalLine."Document No.");
     end;
 
-    local procedure GetLastLineNo(vJournalTemplateName: Code[20]; vBatchName: Code[30]) rvLineNo: Integer
+    local procedure GetLastLineNo(vjournaltemplatename: Code[20]; vbatchname: Code[30]) rvLineNo: Integer
     var
         vGenJournalLine: Record "Gen. Journal Line";
     begin
         vGenJournalLine.RESET;
-        vGenJournalLine.SETFILTER("Journal Template Name", vJournalTemplateName);
-        vGenJournalLine.SETFILTER("Journal Batch Name", vBatchName);
+        vGenJournalLine.SETFILTER("Journal Template Name", vjournaltemplatename);
+        vGenJournalLine.SETFILTER("Journal Batch Name", vbatchname);
         IF vGenJournalLine.FINDLAST THEN
             EXIT(vGenJournalLine."Line No.");
         EXIT(0);
