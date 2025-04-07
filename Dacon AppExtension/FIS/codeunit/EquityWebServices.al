@@ -33,94 +33,85 @@ codeunit 50102 EquityWebServices
             GenJournalBatch.INIT;
             GenJournalBatch.Name := JournalBatchName;
             GenJournalBatch."Journal Template Name" := 'CASHRCPT';
-            GenJournalBatch."Bal. Account Type" := GenJnlTemplate."Bal. Account Type"; //GL Account
-
+            GenJournalBatch."Bal. Account Type" := GenJnlTemplate."Bal. Account Type";
             GenJournalBatch."No. Series" := GenJnlTemplate."No. Series";
-            GenJournalBatch."Posting No. Series" := 'GJNL-RCPT';// GenJnlTemplate."No. Series";
-
+            GenJournalBatch."Posting No. Series" := 'GJNL-RCPT';
             GenJournalBatch.INSERT(TRUE);
         END;
 
 
         CLEAR(NoSeriesMgt);
-
         GenJournalLine.INIT;
         GenJournalLine."Journal Template Name" := 'CASHRCPT';
         GenJournalLine."Journal Batch Name" := JournalBatchName;
         EVALUATE(xPostingDate, PostingDate);
         GenJournalLine."Posting Date" := xPostingDate;
         GenJournalLine."Account No." := AccountNo;
-        GenJournalLine."Document Type" := GenJournalLine."Document Type"::Payment; //payment or credit memo
+        GenJournalLine."Document Type" := GenJournalLine."Document Type"::Payment;
 
-        IF DocumentNo = '' THEN
+        IF documentno = '' THEN
 #pragma warning disable AL0432
             GenJournalLine."Document No." := NoSeriesMgt.GetNextNo('GJNL-RCPT', WORKDATE, TRUE);
 #pragma warning restore AL0432
-        IF DocumentNo <> '' THEN
+        IF documentno <> '' THEN
             GenJournalLine."Document No." := DocumentNo;
 
         GenJournalLine."External Document No." := ExDocNo;
         GenJournalLine.VALIDATE(GenJournalLine.Amount, Amount);
 
-        IF Trans = 'CDC' THEN
+        IF trans = 'CDC' THEN
             GenJournalLine."Bal. Account No." := '420004'
 
-        ELSE IF Trans = 'CDI' THEN
+        ELSE IF trans = 'CDI' THEN
             GenJournalLine."Bal. Account No." := '310001';
 
-        IF AcctType = 'Bank Account' THEN
+        IF accttype = 'Bank Account' THEN
             GenJournalLine."Account Type" := GenJournalLine."Account Type"::"Bank Account"
-        ELSE IF AcctType = 'G/L Account' THEN
+        ELSE IF accttype = 'G/L Account' THEN
             GenJournalLine."Account Type" := GenJournalLine."Account Type"::"G/L Account"
-        ELSE IF AcctType = 'Vendor' THEN
+        ELSE IF accttype = 'Vendor' THEN
             GenJournalLine."Account Type" := GenJournalLine."Account Type"::"Vendor";
 
         GenJournalLine."Bal. Account Type" := GenJournalLine."Bal. Account Type"::"G/L Account";//balancing account
 
-        IF AcctType = 'Vendor' then
+        IF accttype = 'Vendor' then
             GenJournalLine."WHT Business Posting Group PHL" := 'V_CORP';
 
         IF accountno = '700008' then
             GenJournalLine."Gen. Prod. Posting Group" := 'GL';
 
-        //GenJournalLine.Particulars:= Particulars;//description
         GenJournalLine.Description := Particulars;
-
         OldDimSetID := GenJournalLine."Dimension Set ID";
-
-
-        //DIMENSION
-
 
         TempDimSetEntry.DELETEALL;
         TempDimSetEntry.INIT;
-        IF Trans IN ['CDC', 'SC'] THEN
-            TempDimSetEntry.VALIDATE("Dimension Code", 'BANK')//Dimension Code
-        ELSE IF Trans IN ['CDI', 'SI'] THEN
+        IF trans IN ['CDC', 'SC'] THEN
+            TempDimSetEntry.VALIDATE("Dimension Code", 'BANK')
+        ELSE IF trans IN ['CDI', 'SI'] THEN
             TempDimSetEntry.VALIDATE("Dimension Code", 'ACCOUNT NAME');
-        TempDimSetEntry.VALIDATE("Dimension Value Code", BankCode);//Value 
+        TempDimSetEntry.VALIDATE("Dimension Value Code", BankCode);
         TempDimSetEntry.INSERT;
 
-        if (AcctType <> 'Vendor') then begin
+        if (accttype <> 'Vendor') then begin
             TempDimSetEntry.INIT;
-            TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');//Dimension Code
-            TempDimSetEntry.VALIDATE("Dimension Value Code", TranxType);//Value 
+            TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');
+            TempDimSetEntry.VALIDATE("Dimension Value Code", TranxType);
             TempDimSetEntry.INSERT;
         end;
 
         TempDimSetEntry.INIT;
-        TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');//Dimension Code
-        TempDimSetEntry.VALIDATE("Dimension Value Code", StockCode);//Value 
+        TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');
+        TempDimSetEntry.VALIDATE("Dimension Value Code", StockCode);
         TempDimSetEntry.INSERT;
 
-        IF (AcctType = 'Vendor') and (Trans = 'SC') then begin
+        IF (accttype = 'Vendor') and (trans = 'SC') then begin
             TempDimSetEntry.INIT;
             TempDimSetEntry.Validate("Dimension Code", 'A/P TYPE');
             TempDimSetEntry.Validate("Dimension Value Code", 'A/P - TRADE');
             TempDimSetEntry.INSERT;
         end;
 
-        if Trans in ['SI', 'SC'] then begin
+        if trans in ['SI', 'SC'] then begin
             TempDimSetEntry.INIT;
             TempDimSetEntry.Validate("Dimension Code", 'INV_TRANX');
             TempDimSetEntry.Validate("Dimension Value Code", '102');
@@ -128,12 +119,10 @@ codeunit 50102 EquityWebServices
         end;
 
         TempDimSetEntry.RESET;
-        NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry); //get new DimSetID, after existing PO dimensions are modified
-
+        NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry);
         GenJournalLine."Dimension Set ID" := NewDimSetID;
         GenJournalLine."Line No." := GetLastLineNo('CASHRCPT', JournalBatchName) + 10000;
         GenJournalLine.INSERT(TRUE);
-
         EXIT(GenJournalLine."Document No.");
     end;
 
@@ -146,7 +135,6 @@ codeunit 50102 EquityWebServices
         vGenJournalLine.SETFILTER("Journal Batch Name", vBatchName);
         IF vGenJournalLine.FINDLAST THEN
             EXIT(vGenJournalLine."Line No.");
-
         EXIT(0);
     end;
 
