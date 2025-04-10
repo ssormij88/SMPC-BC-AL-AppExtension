@@ -19,6 +19,7 @@ codeunit 50102 EquityWebServices
     procedure CreatetCRJ(amount: Decimal; particulars: Text; accountno: Text; bankcode: Text; tranxtype: Text; stockcode: Text; batchname: Text; exdocno: Text; postingdate: Text; accttype: Text; documentno: Text; trans: Text) "50": Code[20]
     var
         xPostingDate: Date;
+        vLineNo: Integer;
     begin
         JournalBatchName := BatchName;
         GenJnlTemplate.RESET;
@@ -78,13 +79,19 @@ codeunit 50102 EquityWebServices
         IF accountno = '700008' then
             GenJournalLine."Gen. Prod. Posting Group" := 'GL';
         GenJournalLine.Description := particulars;
+
         OldDimSetID := GenJournalLine."Dimension Set ID";
 
+        vLineNo := GetLastLineNo('CASHRCPT', JournalBatchName) + 10000;
+        GenJournalLine."Line No." := vLineNo;
+        GenJournalLine.INSERT(TRUE);
+
         TempDimSetEntry.DELETEALL;
+
         TempDimSetEntry.INIT;
-        IF trans IN ['CDC', 'SC'] THEN
+        IF (trans = 'CDC') or (trans = 'SC') THEN
             TempDimSetEntry.VALIDATE("Dimension Code", 'BANK')
-        ELSE IF trans IN ['CDI', 'SI'] THEN
+        ELSE IF (trans = 'CDI') or (trans = 'SI') THEN
             TempDimSetEntry.VALIDATE("Dimension Code", 'ACCOUNT NAME');
         TempDimSetEntry.VALIDATE("Dimension Value Code", bankcode);
         TempDimSetEntry.INSERT;
@@ -117,9 +124,15 @@ codeunit 50102 EquityWebServices
 
         TempDimSetEntry.RESET;
         NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry);
-        GenJournalLine."Dimension Set ID" := NewDimSetID;
-        GenJournalLine."Line No." := GetLastLineNo('CASHRCPT', JournalBatchName) + 10000;
-        GenJournalLine.INSERT(TRUE);
+        GenJournalLine.Reset();
+        GenJournalLine.SetRange("Journal Batch Name", JournalBatchName);
+        GenJournalLine.SetRange("Journal Template Name", 'CASHRCPT');
+        GenJournalLine.SetRange("Line No.", vLineNo);
+        if GenJournalLine.FindFirst() then begin
+            GenJournalLine."Dimension Set ID" := NewDimSetID;
+            GenJournalLine.Modify();
+        end;
+
         EXIT(GenJournalLine."Document No.");
     end;
 
