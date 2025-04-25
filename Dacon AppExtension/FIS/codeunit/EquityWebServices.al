@@ -35,8 +35,8 @@ codeunit 50102 EquityWebServices
             GenJournalBatch.Name := JournalBatchName;
             GenJournalBatch."Journal Template Name" := 'CASHRCPT';
             GenJournalBatch."Bal. Account Type" := GenJnlTemplate."Bal. Account Type";
-            GenJournalBatch."No. Series" := GenJnlTemplate."No. Series";
-            GenJournalBatch."Posting No. Series" := 'GJNL-RCPT';
+            GenJournalBatch."No. Series" := 'GJNL-RCPT';
+            GenJournalBatch."Posting No. Series" := GenJnlTemplate."Posting No. Series";
             GenJournalBatch.INSERT(TRUE);
         END;
 
@@ -96,12 +96,10 @@ codeunit 50102 EquityWebServices
         TempDimSetEntry.VALIDATE("Dimension Value Code", bankcode);
         TempDimSetEntry.INSERT;
 
-        if (accttype <> 'Vendor') then begin
-            TempDimSetEntry.INIT;
-            TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');
-            TempDimSetEntry.VALIDATE("Dimension Value Code", tranxtype);
-            TempDimSetEntry.INSERT;
-        end;
+        TempDimSetEntry.INIT;
+        TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');
+        TempDimSetEntry.VALIDATE("Dimension Value Code", tranxtype);
+        TempDimSetEntry.INSERT;
 
         TempDimSetEntry.INIT;
         TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');
@@ -387,6 +385,39 @@ codeunit 50102 EquityWebServices
         GenJournalLine.INSERT(TRUE);
 
         EXIT(GenJournalLine."Document No.");
+    end;
+
+    procedure GetBankAccountEntries(codename: code[20]): Text
+    var
+        txt: Text[500];
+        BankAccountEntries: Record "Bank Account Ledger Entry";
+        DimSetEntry: Record "Dimension Set Entry";
+        DimValue: Code[20];
+    begin
+        BankAccountEntries.RESET;
+        BankAccountEntries.SETRANGE("Bank Account No.", '*' + codename + '*');
+
+        if BankAccountEntries.FINDSET then begin
+            repeat
+                // Default dimension value to blank
+                DimValue := '';
+
+                // Try to find the dimension value for this entry
+                DimSetEntry.RESET;
+                DimSetEntry.SETRANGE("Dimension Set ID", BankAccountEntries."Dimension Set ID");
+                DimSetEntry.SETRANGE("Dimension Code", 'CASH_TRANX');
+
+                if DimSetEntry.FINDFIRST then
+                    DimValue := DimSetEntry."Dimension Value Code";
+
+                // Append the full record info to the output string
+                txt := txt + FORMAT(BankAccountEntries."Posting Date") + '^' +
+                            BankAccountEntries."External Document No." + '^' +
+                            DimValue + '^' +
+                            FORMAT(BankAccountEntries."Remaining Amount");
+            until BankAccountEntries.NEXT() = 0;
+        end;
+        exit('testing');
     end;
 
 }
