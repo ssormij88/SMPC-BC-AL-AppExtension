@@ -20,6 +20,7 @@ page 50105 "Copy to multiple companies"
                 field("Company"; Rec."User email")
                 {
                     Caption = 'Company';
+                    TableRelation = Company;
                     trigger OnValidate()
                     var
                         lineno: Integer;
@@ -49,6 +50,11 @@ page 50105 "Copy to multiple companies"
         NumberOfCopies: Integer;
         NewCompanyName: Text[30];
         company: Record Company;
+        RecourdSource: Text[50];
+        HideCompanyField: Boolean;
+        HideCompanyBadgeField: Boolean;
+        vVendor: Record Vendor temporary;
+        vCustomer: Record Customer temporary;
 
     procedure SetSourceName(NewSourceName: Text[30])
     begin
@@ -194,4 +200,124 @@ page 50105 "Copy to multiple companies"
     local procedure OnAfterCopyCompanyOnAction(CompanyName: Text[30])
     begin
     end;
+
+    procedure SetVendor(var vendor: Record Vendor)
+    begin
+        vVendor.DeleteAll();
+        if vendor.FindSet() then begin
+            repeat
+                vVendor.Init();
+                vVendor.TransferFields(vendor);
+                vVendor.Insert();
+            until vendor.Next() = 0;
+        end;
+    end;
+
+    procedure CopyVendorsToMultipleCompanies()
+    var
+        jVendor: Record Vendor;
+        company: Record Company;
+        ProgressWindow: Dialog;
+        ProgressMsg: Label 'Copying Vendor to company %1.';
+        CopySuccessMsg: Label 'Vendor %1 has been copied successfully.';
+    begin
+        Rec.SetFilter("User email", '<>%1', '');
+        if Rec.FindSet() then begin
+            repeat
+                company.Reset();
+                company.SetFilter(Name, Rec."User email");
+                if company.FindFirst() then begin
+                    ProgressWindow.Open(StrSubstNo(ProgressMsg, company.Name));
+                    jVendor.ChangeCompany(company.Name);
+                    vVendor.Reset();
+                    if vVendor.FindSet() then begin
+                        repeat
+                            jVendor.Reset();
+                            jVendor.SetRange("No.", vVendor."No.");
+                            if jVendor.FindFirst() then begin
+                                jVendor.Name := vVendor.Name;
+                                jVendor."Name 2" := vVendor."Name 2";
+                                jVendor."Address" := vVendor."Address";
+                                jVendor."Address 2" := vVendor."Address 2";
+                                jVendor."City" := vVendor."City";
+                                jVendor."Post Code" := vVendor."Post Code";
+                                jVendor."Country/Region Code" := vVendor."Country/Region Code";
+                                jVendor."Phone No." := vVendor."Phone No.";
+                                jVendor."E-Mail" := vVendor."E-Mail";
+                                jVendor."Contact" := vVendor."Contact";
+                                jVendor.Modify();
+                            end else begin
+                                jVendor.Init();
+                                jVendor.TransferFields(vVendor);
+                                jVendor.Insert()
+                            end;
+                        until vVendor.Next() = 0;
+                    end;
+                end;
+            until Rec.Next() = 0;
+            ProgressWindow.Close();
+            Message(CopySuccessMsg, SourceName);
+        end;
+    end;
+
+    procedure SetCustomers(var customers: Record Customer)
+    begin
+        vCustomer.DeleteAll();
+        if customers.FindSet() then begin
+            repeat
+                vCustomer.Init();
+                vCustomer.TransferFields(customers);
+                vCustomer.Insert();
+            until customers.Next() = 0;
+        end;
+    end;
+
+    procedure CopyCustomersToMultipleCompanies()
+    var
+        jCustomer: Record Customer;
+        company: Record Company;
+        ProgressWindow: Dialog;
+        ProgressMsg: Label 'Copying Customer to company %1.';
+        CopySuccessMsg: Label 'Customer %1 has been copied successfully.';
+    begin
+        Rec.SetFilter("User email", '<>%1', '');
+        if Rec.FindSet() then begin
+            repeat
+                company.Reset();
+                company.SetFilter(Name, Rec."User email");
+                if company.FindFirst() then begin
+                    ProgressWindow.Open(StrSubstNo(ProgressMsg, company.Name));
+                    jCustomer.ChangeCompany(company.Name);
+                    vCustomer.Reset();
+                    if vCustomer.FindSet() then begin
+                        repeat
+                            jCustomer.Reset();
+                            jCustomer.SetRange("No.", vCustomer."No.");
+                            if jCustomer.FindFirst() then begin
+                                jCustomer.Name := vCustomer.Name;
+                                jCustomer."Name 2" := vCustomer."Name 2";
+                                jCustomer."Address" := vCustomer."Address";
+                                jCustomer."Address 2" := vCustomer."Address 2";
+                                jCustomer."City" := vCustomer."City";
+                                jCustomer."Post Code" := vCustomer."Post Code";
+                                jCustomer."Country/Region Code" := vCustomer."Country/Region Code";
+                                jCustomer."Phone No." := vCustomer."Phone No.";
+                                jCustomer."E-Mail" := vCustomer."E-Mail";
+                                jCustomer."Contact" := vCustomer."Contact";
+                                jCustomer.Modify();
+                            end else begin
+                                jCustomer.Init();
+                                jCustomer.TransferFields(vCustomer);
+                                jCustomer.Insert()
+                            end;
+                        until vCustomer.Next() = 0;
+                    end;
+                end;
+            until Rec.Next() = 0;
+            ProgressWindow.Close();
+            Message(CopySuccessMsg, SourceName);
+        end;
+    end;
+
 }
+
