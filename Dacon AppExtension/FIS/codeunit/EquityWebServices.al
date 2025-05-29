@@ -113,6 +113,7 @@ codeunit 50102 EquityWebServices
                 TempDimSetEntry.VALIDATE("Dimension Code", 'SHORT-TERM INVESTMEN');
             'BC', 'BI':
                 TempDimSetEntry.VALIDATE("Dimension Code", 'BONDS');
+            //Add Dimension for BOND
             else
                 TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');
         end;

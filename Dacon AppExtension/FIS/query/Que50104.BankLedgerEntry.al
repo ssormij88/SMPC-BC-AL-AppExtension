@@ -45,7 +45,7 @@ query 50104 "Bank Ledger Entry"
         EndDate: Date;
     begin
         EndDate := CalcDate('<CM>', Today());
-        StartDate := CalcDate('<-8M>', EndDate);
+        StartDate := CalcDate('<-9M>', EndDate);
         SetRange(Posting_Date_Filter, StartDate, EndDate);
         SetRange(CashTranx_Code, 'CASH_TRANX');
     end;
