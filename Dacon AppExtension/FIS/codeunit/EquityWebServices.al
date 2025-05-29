@@ -14,11 +14,11 @@ codeunit 50102 EquityWebServices
         NoSeriesMgt: Codeunit "NoSeriesManagement";
 #pragma warning restore AL0432
         DimMgt: Codeunit "DimensionManagement";
+        xPostingDate: Date;
 
     [ServiceEnabled]
-    procedure CreatetCRJ(amount: Decimal; particulars: Text; accountno: Text; bankcode: Text; tranxtype: Text; stockcode: Text; batchname: Text; exdocno: Text; postingdate: Text; accttype: Text; documentno: Text; trans: Text) "50": Code[20]
+    procedure CreatetCRJ(amount: Decimal; particulars: Text; accountno: Text; bankcode: Text; tranxtype: Text; stockcode: Text; batchname: Text; exdocno: Text; postingdate: Text; accttype: Text; documentno: Text; trans: Text; balacctno: Text) "50": Code[20]
     var
-        xPostingDate: Date;
         vLineNo: Integer;
     begin
         JournalBatchName := BatchName;
@@ -71,8 +71,14 @@ codeunit 50102 EquityWebServices
         ELSE IF accttype = 'G/L Account' THEN
             GenJournalLine."Account Type" := GenJournalLine."Account Type"::"G/L Account"
         ELSE IF accttype = 'Vendor' THEN
-            GenJournalLine."Account Type" := GenJournalLine."Account Type"::"Vendor";
-        GenJournalLine."Bal. Account Type" := GenJournalLine."Bal. Account Type"::"G/L Account";//balancing account
+            GenJournalLine."Account Type" := GenJournalLine."Account Type"::"Vendor"
+        ELSE IF accttype = 'Customer' THEN
+            GenJournalLine."Account Type" := GenJournalLine."Account Type"::"Customer";
+
+        GenJournalLine."Bal. Account Type" := GenJournalLine."Bal. Account Type"::"G/L Account";
+
+        if balacctno <> '' then
+            GenJournalLine."Bal. Account No." := balacctno;
 
         IF accttype = 'Vendor' then
             GenJournalLine."WHT Business Posting Group PHL" := 'V_CORP';
@@ -89,7 +95,7 @@ codeunit 50102 EquityWebServices
         TempDimSetEntry.DELETEALL;
 
         TempDimSetEntry.INIT;
-        IF (trans = 'CDC') or (trans = 'SC') THEN
+        IF (trans = 'CDC') or (trans = 'SC') or (trans = 'FC') or (trans = 'BC') THEN
             TempDimSetEntry.VALIDATE("Dimension Code", 'BANK')
         ELSE IF (trans = 'CDI') or (trans = 'SI') THEN
             TempDimSetEntry.VALIDATE("Dimension Code", 'ACCOUNT NAME');
@@ -102,7 +108,15 @@ codeunit 50102 EquityWebServices
         TempDimSetEntry.INSERT;
 
         TempDimSetEntry.INIT;
-        TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');
+        case Trans of
+            'FC', 'FI':
+                TempDimSetEntry.VALIDATE("Dimension Code", 'SHORT-TERM INVESTMEN');
+            'BC', 'BI':
+                TempDimSetEntry.VALIDATE("Dimension Code", 'BONDS');
+            //Add Dimension for BOND
+            else
+                TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');
+        end;
         TempDimSetEntry.VALIDATE("Dimension Value Code", stockcode);
         TempDimSetEntry.INSERT;
 
@@ -144,6 +158,115 @@ codeunit 50102 EquityWebServices
         IF vGenJournalLine.FINDLAST THEN
             EXIT(vGenJournalLine."Line No.");
         EXIT(0);
+    end;
+
+
+    procedure CreatePayJournal(batchname: Text; postingdate: Text; vatdate: Text; documenttype: Text; documentno: Text; externaldocno: Text; accttype: Text; acctno: Text; description: Text; amount: Decimal; balaccttype: Text; bankcode: Text; tranxcode: Text; shortterminv: Text; trans: Text) docno: Code[20]
+    var
+        vLineNo: Integer;
+    begin
+        // 1. Validate and initialize the batch
+        GenJnlTemplate.GET('GENERAL');
+
+        // Ensure batch name is not empty
+        if batchname = '' then
+            Error('Batch name cannot be empty');
+
+        // Check/create the batch
+        if not GenJournalBatch.Get('GENERAL', batchname) then begin
+            GenJournalBatch.Init();
+            GenJournalBatch."Journal Template Name" := 'GENERAL';
+            GenJournalBatch.Name := batchname;
+            GenJournalBatch.Description := 'Auto-created batch';
+            GenJournalBatch."No. Series" := 'JVNUMBER';
+            GenJournalBatch."Posting No. Series" := GenJnlTemplate."Posting No. Series";
+            GenJournalBatch."Bal. Account Type" := GenJnlTemplate."Bal. Account Type";
+            GenJournalBatch.Insert(true);
+        end;
+
+        // 2. Create journal line
+        GenJournalLine.Init();
+        GenJournalLine."Journal Template Name" := 'GENERAL';
+        GenJournalLine."Journal Batch Name" := batchname;
+        Evaluate(xPostingDate, postingdate);
+        GenJournalLine."Posting Date" := xPostingDate;
+        if externaldocno <> '' then
+            GenJournalLine."VAT Reporting Date" := xPostingDate;
+
+        GenJournalLine."External Document No." := externaldocno;
+
+        case accttype of
+            'Customer':
+                GenJournalLine."Account Type" := GenJournalLine."Account Type"::Customer;
+            'Bank Account':
+                GenJournalLine."Account Type" := GenJournalLine."Account Type"::"Bank Account";
+            'G/L Account':
+                GenJournalLine."Account Type" := GenJournalLine."Account Type"::"G/L Account";
+            else
+                GenJournalLine."Account Type" := GenJournalLine."Account Type"::Vendor;
+        end;
+
+        case balaccttype of
+            'G/L Account':
+                GenJournalLine."Bal. Account Type" := GenJournalLine."Bal. Account Type"::"G/L Account";
+        end;
+
+        GenJournalLine."Account No." := acctno;
+        GenJournalLine.Description := description;
+        GenJournalLine.Amount := amount;
+        GenJournalLine."Amount (LCY)" := amount;
+
+        // 3. Handle document number generation
+        if documentno = '' then
+#pragma warning disable AL0432    
+        GenJournalLine."Document No." := NoSeriesMgt.GetNextNo('JVNUMBR', WORKDATE, TRUE)
+#pragma warning restore AL0432
+        else
+            GenJournalLine."Document No." := documentno;
+
+        // Store document number for return before inserting
+        docno := GenJournalLine."Document No.";
+
+        // Get line number and insert
+        vLineNo := GetLastLineNo('GENERAL', batchname) + 10000;
+        GenJournalLine."Line No." := vLineNo;
+        GenJournalLine.INSERT(TRUE);
+
+        // Handle dimensions (your existing code)
+        TempDimSetEntry.DELETEALL;
+        if bankcode <> '' then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'BANK');
+            TempDimSetEntry.VALIDATE("Dimension Value Code", BankCode);
+            TempDimSetEntry.INSERT;
+        end;
+
+        TempDimSetEntry.INIT;
+        TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');
+        TempDimSetEntry.VALIDATE("Dimension Value Code", tranxcode);
+        TempDimSetEntry.INSERT;
+
+        if shortterminv <> '' then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'SHORT-TERM INVESTMEN');
+            TempDimSetEntry.VALIDATE("Dimension Value Code", shortterminv);
+            TempDimSetEntry.INSERT;
+        end;
+
+        // Update dimensions
+        TempDimSetEntry.RESET;
+        NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry);
+        GenJournalLine.Reset();
+        GenJournalLine.SetRange("Journal Batch Name", batchname);
+        GenJournalLine.SetRange("Journal Template Name", 'GENERAL');
+        GenJournalLine.SetRange("Line No.", vLineNo);
+        if GenJournalLine.FindFirst() then begin
+            GenJournalLine."Dimension Set ID" := NewDimSetID;
+            GenJournalLine.Modify();
+        end;
+
+        // 4. Explicitly return the document number
+        exit(docno);
     end;
 
     [ServiceEnabled]
@@ -318,8 +441,8 @@ codeunit 50102 EquityWebServices
             GenJournalBatch."Journal Template Name" := SourceCode;
             GenJournalBatch."Bal. Account Type" := GenJnlTemplate."Bal. Account Type";
 
-            GenJournalBatch."No. Series" := NoSeries;
-            GenJournalBatch."Posting No. Series" := GenJnlTemplate."Posting No. Series";
+            GenJournalBatch."No. Series" := GenJnlTemplate."No. Series";
+            GenJournalBatch."Posting No. Series" := 'GJNL-RCPT';
             GenJournalBatch.INSERT(TRUE);
         END;
 
@@ -386,40 +509,6 @@ codeunit 50102 EquityWebServices
 
         EXIT(GenJournalLine."Document No.");
     end;
-
-    procedure GetBankAccountEntries(codename: code[20]): Text
-    var
-        txt: Text[500];
-        BankAccountEntries: Record "Bank Account Ledger Entry";
-        DimSetEntry: Record "Dimension Set Entry";
-        DimValue: Code[20];
-    begin
-        BankAccountEntries.RESET;
-        BankAccountEntries.SETRANGE("Bank Account No.", '*' + codename + '*');
-
-        if BankAccountEntries.FINDSET then begin
-            repeat
-                // Default dimension value to blank
-                DimValue := '';
-
-                // Try to find the dimension value for this entry
-                DimSetEntry.RESET;
-                DimSetEntry.SETRANGE("Dimension Set ID", BankAccountEntries."Dimension Set ID");
-                DimSetEntry.SETRANGE("Dimension Code", 'CASH_TRANX');
-
-                if DimSetEntry.FINDFIRST then
-                    DimValue := DimSetEntry."Dimension Value Code";
-
-                // Append the full record info to the output string
-                txt := txt + FORMAT(BankAccountEntries."Posting Date") + '^' +
-                            BankAccountEntries."External Document No." + '^' +
-                            DimValue + '^' +
-                            FORMAT(BankAccountEntries."Remaining Amount");
-            until BankAccountEntries.NEXT() = 0;
-        end;
-        exit('testing');
-    end;
-
 }
 
 
