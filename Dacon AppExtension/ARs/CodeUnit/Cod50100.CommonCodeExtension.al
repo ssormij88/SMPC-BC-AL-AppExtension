@@ -20,7 +20,8 @@ codeunit 50100 CommonCodeExtension
     end;
 
     procedure CreateRDSLine(reqNo: Code[20]; estateTax: Decimal; dimCode: Code[20];
-     dimValue: Code[20]; lineNo: Integer; userAccount: Code[50]; vendorno: code[20]): Integer
+     dimValue: Code[20]; lineNo: Integer; userAccount: Code[50]; vendorno: code[20];
+     tType: Text[50]; glAccountNo: code[20]): Integer
     var
         ReqLine: Record PPHRDS_ReqLine;
         DefaultDimension: Record "Default Dimension";
@@ -52,8 +53,15 @@ codeunit 50100 CommonCodeExtension
                     ReqLine.Init();
                     ReqLine."Document No." := reqNo;
                     ReqLine."Line No." := jLineNo;
-                    ReqLine.Type := ReqLine.Type::"Fixed Asset";
-                    ReqLine.Validate("No.", DefaultDimension."No.");
+                    if tType = 'RPT' then begin
+                        ReqLine.Type := ReqLine.Type::"Fixed Asset";
+                        ReqLine.Validate("No.", DefaultDimension."No.");
+                    end else if tType = 'GL' then begin
+                        ReqLine.Type := ReqLine.Type::"G/L Account";
+                        ReqLine.Validate("No.", glAccountNo);
+                    end;
+
+
                     ReqLine.Validate(Quantity, 1);
                     ReqLine.Validate("Direct Unit Cost", estateTax);
                     ReqLine.Validate("Vendor No.", vendorno);
@@ -100,6 +108,8 @@ codeunit 50100 CommonCodeExtension
                         ReqHeader.Validate("Requestor ID", userAccount);
                         ReqHeader.MODIFY;
                     END;
+
+                    UpdateAllLineDim(NewDimSetID, OldDimSetID, reqNo);
                     exit(ReqLine."Line No.");
                 end;
             end;
@@ -458,12 +468,15 @@ codeunit 50100 CommonCodeExtension
     end;
 
     procedure CreateAssetDimension(dimValue: Code[30]; dimName: code[50];
-     faSeries: code[20]; faName: text[50]; faVendor: code[20]; faSubClassName: text[50]): Text
+         faSeries: code[20]; faName: text[50]; faVendor: code[20]; faSubClassName: text[50]): Text
     var
         DefaultDimension: Record "Default Dimension";
         FaNo: code[20];
         FixedAsset: Record "Fixed Asset";
         FASubclass: Record "FA Subclass";
+        OldDimSetID: Integer;
+        NewDimSetID: Integer;
+        ReqLine: Record PPHRDS_ReqLine;
     begin
         DimensionValue.Reset();
         DimensionValue.SetRange("Dimension Code", 'ARSNO');
@@ -534,9 +547,69 @@ codeunit 50100 CommonCodeExtension
             DefaultDimension.Validate("Dimension Value Code", dimValue);
             DefaultDimension.Insert();
 
+
+
+            ReqHeader.Init();
+            ReqHeader."Request Date" := WorkDate();
+            ReqHeader."Document Date" := WorkDate();
+            ReqHeader."Posting Date" := WorkDate();
+            ReqHeader.Validate("Request Code", 'FA ACQUISITION');
+            ReqHeader.Insert(true);
+
+            ReqLine.Init();
+            ReqLine."Document No." := ReqHeader."No.";
+            ReqLine."Line No." := 10000;
+            ReqLine.Type := ReqLine.Type::"Fixed Asset";
+            ReqLine.Validate("No.", DefaultDimension."No.");
+            ReqLine.Validate(Quantity, 1);
+            ReqLine.Validate("Request Code", 'FA ACQUISITION');
+            ReqLine.Insert();
+
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'ARSNO');
+            TempDimSetEntry.VALIDATE("Dimension Value Code", dimValue);
+            TempDimSetEntry.INSERT;
+
+            TempDimSetEntry.RESET;
+            NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry); //get new DimSetID, after existing PO dimensions are modified
+
+            ReqHeader.Reset();
+            ReqHeader.SetRange("No.", FixedAsset."No.");
+            if ReqHeader.FindFirst() then begin
+                //IF OldDimSetID <> NewDimSetID THEN BEGIN
+                ReqHeader."Dimension Set ID" := NewDimSetID; //assign new DimSetID 
+                                                             //  ReqHeader.Validate("Requestor ID", userAccount);
+                ReqHeader.MODIFY;
+                //  END;
+            end;
+
             exit(FixedAsset."No.");
         end;
         exit('ok');
+    end;
+
+    local procedure UpdateAllLineDim(NewParentDimSetID: Integer; OldParentDimSetID: Integer; docNo: Code[20]);
+    var
+        NewDimSetID: Integer;
+
+        ReqLine: Record PPHRDS_ReqLine;
+    begin
+        // Update all lines with changed dimensions.
+
+        ReqLine.Reset();
+        ReqLine.SetRange("Document No.", docNo);
+        ReqLine.LockTable();
+        if ReqLine.Find('-') then
+            repeat
+                NewDimSetID := DimMgt.GetDeltaDimSetID(ReqLine."Dimension Set ID", NewParentDimSetID, OldParentDimSetID);
+                if ReqLine."Dimension Set ID" <> NewDimSetID then begin
+                    ReqLine."Dimension Set ID" := NewDimSetID;
+
+                    DimMgt.UpdateGlobalDimFromDimSetID(
+                      ReqLine."Dimension Set ID", ReqLine."Shortcut Dimension 1 Code", ReqLine."Shortcut Dimension 2 Code");
+                    ReqLine.Modify();
+                end;
+            until ReqLine.Next() = 0;
     end;
 
     var
