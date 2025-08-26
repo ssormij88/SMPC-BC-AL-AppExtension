@@ -612,6 +612,30 @@ codeunit 50100 CommonCodeExtension
             until ReqLine.Next() = 0;
     end;
 
+    procedure PostDataToThirdPartyAPI(RequestURI: Text; JsonData: JsonObject): HttpResponseMessage
+    begin
+
+        Content.WriteFrom(Format(JsonData));
+        // This shows how you can set or change HTTP content headers in your request
+        Content.GetHeaders(ContentHeaders);
+        if ContentHeaders.Contains('Content-Type') then ContentHeaders.Remove('Content-Type');
+        ContentHeaders.Add('Content-Type', 'application/json');
+
+        // This shows how you can set HTTP request headers in your request
+        HttpRequestMessage.GetHeaders(RequestHeaders);
+        RequestHeaders.Add('Accept', 'application/json');
+        RequestHeaders.Add('Accept-Encoding', 'utf-8');
+        RequestHeaders.Add('Connection', 'Keep-alive');
+
+        HttpRequestMessage.SetRequestUri(RequestURI);
+        HttpRequestMessage.Method('Post');
+        HttpRequestMessage.Content(Content); // Set the content   
+
+        Client.Send(HttpRequestMessage, HttpResponseMessage);
+        exit(HttpResponseMessage);
+
+    end;
+
     var
         NoSeriesMgt: Codeunit "No. Series";
         TempDimSetEntry: Record "Dimension Set Entry" temporary;
@@ -624,4 +648,11 @@ codeunit 50100 CommonCodeExtension
         JournalBatchName: Code[30];
         GenJnlTemplate: Record "Gen. Journal Template";
         GenJournalLine: Record "Gen. Journal Line";
+        Client: HttpClient;
+        HttpRequestMessage: HttpRequestMessage;
+        RequestHeaders: HttpHeaders;
+        Content: HttpContent;
+        ContentHeaders: HttpHeaders;
+        HttpResponseMessage: HttpResponseMessage;
+        ResponseText: Text;
 }
