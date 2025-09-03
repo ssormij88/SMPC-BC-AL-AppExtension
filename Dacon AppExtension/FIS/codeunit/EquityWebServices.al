@@ -16,13 +16,153 @@ codeunit 50102 EquityWebServices
         DimMgt: Codeunit "DimensionManagement";
         xPostingDate: Date;
     #endregion
+
+    #region Local Procedure
+    local procedure GetSplitValue(InputText: Text; Delimiter: Text; Index: Integer): Text
+    var
+        Parts: List of [Text];
+    begin
+        if (Delimiter = '') or (Index <= 0) then
+            exit('');
+
+        Parts := InputText.Split(Delimiter);
+
+        if (Index > Parts.Count) then
+            exit('');
+
+        exit(Parts.Get(Index));
+    end;
+
+    local procedure GetFullNameFromUserName(UserName: Code[50]): Text[100]
+    var
+        UserRec: Record User;
+    begin
+        UserRec.SetRange("User Name", UserName);
+        if UserRec.FindFirst() then
+            exit(UserRec."Full Name");
+        exit('');
+    end;
+
+    local procedure GetLastLineNo(vjournaltemplatename: Code[20]; vbatchname: Code[30]) rvLineNo: Integer
+    var
+        vGenJournalLine: Record "Gen. Journal Line";
+    begin
+        vGenJournalLine.RESET;
+        vGenJournalLine.SETFILTER("Journal Template Name", vjournaltemplatename);
+        vGenJournalLine.SETFILTER("Journal Batch Name", vbatchname);
+        IF vGenJournalLine.FINDLAST THEN
+            EXIT(vGenJournalLine."Line No.");
+        EXIT(0);
+    end;
+
+    [ServiceEnabled]
+    local procedure GetDimension(BankCode: Text; TranxType: Text; StockCode: Text; InvTranx: Text; APType: Text): Integer
+    begin
+        TempDimSetEntry.DELETEALL;
+
+        if BankCode <> '' then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'BANK');
+            TempDimSetEntry.VALIDATE("Dimension Value Code", BankCode);//Value 
+            TempDimSetEntry.INSERT;
+        end;
+
+        if TranxType <> '' then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');//Dimension Code
+            TempDimSetEntry.VALIDATE("Dimension Value Code", TranxType);//Value 
+            TempDimSetEntry.INSERT;
+        end;
+
+        if StockCode <> '' then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');//Dimension Code
+            TempDimSetEntry.VALIDATE("Dimension Value Code", StockCode);//Value 
+            TempDimSetEntry.INSERT;
+        end;
+
+        if InvTranx <> '' then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'INV_TRANX');//Dimension Code
+            TempDimSetEntry.VALIDATE("Dimension Value Code", InvTranx);//Value 
+            TempDimSetEntry.INSERT;
+        end;
+
+        if APType <> '' then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.VALIDATE("Dimension Code", 'A/P TYPE');//Dimension Code
+            TempDimSetEntry.VALIDATE("Dimension Value Code", APType);//Value 
+            TempDimSetEntry.INSERT;
+        end;
+
+        TempDimSetEntry.RESET;
+        NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry);
+
+        EXIT(NewDimSetID);
+    end;
+
+    local procedure GetAccountTypeEnum(accountTypeText: Text): Enum "Gen. Journal Account Type"
+    begin
+        case accountTypeText of
+            'Customer':
+                exit("Gen. Journal Account Type"::Customer);
+            'Vendor':
+                exit("Gen. Journal Account Type"::Vendor);
+            'Bank Account':
+                exit("Gen. Journal Account Type"::"Bank Account");
+            'G/L Account':
+                exit("Gen. Journal Account Type"::"G/L Account");
+            else
+                Error('Invalid account type: %1', accountTypeText);
+        end;
+    end;
+
+    local procedure AddDimension(var TempDimSetEntry: Record "Dimension Set Entry" temporary; dimCode: Code[20]; valueCode: Code[20])
+    begin
+        if valueCode = '' then
+            exit;
+
+        TempDimSetEntry.Init();
+        TempDimSetEntry.Validate("Dimension Code", dimCode);
+        TempDimSetEntry.Validate("Dimension Value Code", valueCode);
+        if TempDimSetEntry.Insert() then;
+    end;
+
+    local procedure CheckGenJournalBatchExists(
+        TemplateName: Code[10];
+        BatchName: Code[20];
+        NoSeries: Code[20];
+        PostingNoSeries: Code[20];
+        Description: Text)
+    begin
+        // Check if the General Journal Batch already exists
+        if not GenJournalBatch.Get(TemplateName, BatchName) then begin
+            // Initialize new General Journal Batch
+            GenJournalBatch.Init();
+            GenJournalBatch."Journal Template Name" := TemplateName;
+            GenJournalBatch.Name := BatchName;
+            GenJournalBatch.Description := Description;
+
+            // Assign No. Series based on the Template Name
+            GenJournalBatch."No. Series" := NoSeries;
+            GenJournalBatch."Posting No. Series" := PostingNoSeries;
+
+            // Assign Balancing Account Type
+            GenJournalBatch."Bal. Account Type" := GenJnlTemplate."Bal. Account Type";
+
+            // Insert the newly created General Journal Batch
+            GenJournalBatch.Insert(true);
+        end;
+    end;
+    #endregion
+
     #region Executive Handshake
-
-
     [ServiceEnabled]
     procedure CreatetCRJ(amount: Decimal; particulars: Text; accountno: Text; bankcode: Text; tranxtype: Text; stockcode: Text; batchname: Text; exdocno: Text; postingdate: Text; accttype: Text; documentno: Text; trans: Text; balacctno: Text) "50": Code[20]
     var
         vLineNo: Integer;
+        vBalAcct: Text;
+        vOfficer: Text;
     begin
         JournalBatchName := BatchName;
         GenJnlTemplate.RESET;
@@ -80,7 +220,10 @@ codeunit 50102 EquityWebServices
 
         GenJournalLine."Bal. Account Type" := GenJournalLine."Bal. Account Type"::"G/L Account";
 
-        if balacctno <> '' then
+        vBalAcct := GetSplitValue(balacctno, '~', 1);
+        vOfficer := GetSplitValue(balacctno, '~', 2);
+
+        if vBalAcct <> '' then
             GenJournalLine."Bal. Account No." := balacctno;
 
         IF accttype = 'Vendor' then
@@ -132,6 +275,13 @@ codeunit 50102 EquityWebServices
             TempDimSetEntry.INIT;
             TempDimSetEntry.Validate("Dimension Code", 'INV_TRANX');
             TempDimSetEntry.Validate("Dimension Value Code", '102');
+            TempDimSetEntry.INSERT;
+        end;
+
+        if vOfficer <> '' then begin
+            TempDimSetEntry.INIT;
+            TempDimSetEntry.Validate("Dimension Code", 'OFFICER');
+            TempDimSetEntry.Validate("Dimension Value Code", vOfficer);
             TempDimSetEntry.INSERT;
         end;
 
@@ -258,12 +408,24 @@ codeunit 50102 EquityWebServices
     end;
 
     [ServiceEnabled]
-    procedure CreateHeaderRDS(requestid: Code[50]; requestcode: Code[20]; requestdesc: Text; documentdate: Text; postingdate: Text; bankcode: Text; tranxcode: Text) rdsno: Code[20]
+    procedure CreateHeaderRDS(
+        requestid: Code[50];
+        requestcode: Code[20];
+        requestdesc: Text;
+        documentdate: Text;
+        postingdate: Text;
+        bankcode: Text;
+        tranxcode: Text;
+        docno: Text) rdsno: Code[20]
     var
         RDSHeader: Record PPHRDS_ReqHeader;
         dDocumentDate: Date;
         dPostingDate: Date;
     begin
+
+        if docno <> '' then begin
+            exit(docno);
+        end;
 
         if not Evaluate(dDocumentDate, documentdate) then begin
             Error('The provided Document Date "%1" is not in a valid format.', documentdate);
@@ -292,7 +454,22 @@ codeunit 50102 EquityWebServices
 
     end;
 
-    procedure CreateLineRDS(docno: Code[20]; lineno: Integer; no: Code[20]; description: Text; quantity: Integer; directcost: Decimal; expectedrecdate: Text; requestcode: Code[20]; bankcode: Text; tranxcode: Text; aptype: Text; invtranx: Text; investee: Text) rvpurchline: Integer
+    procedure CreateLineRDS(
+        docno: Code[20];
+        lineno: Integer;
+        no: Code[20];
+        description: Text;
+        quantity: Integer;
+        directcost: Decimal;
+        expectedrecdate: Text;
+        requestcode: Code[20];
+        bankcode: Text;
+        tranxcode: Text;
+        aptype: Text;
+        invtranx: Text;
+        investee: Text;
+        rqtdesc: Text;
+        reqpurchdoc: Text) rvpurchline: Integer
     var
         RDSLine: Record PPHRDS_ReqLine;
         dExpectedRecDate: Date;
@@ -311,10 +488,22 @@ codeunit 50102 EquityWebServices
         RDSLine."No." := no;
         RDSLine.Description := description;
         RDSLine.Quantity := quantity;
+        RDSLine."Outstanding Quantity" := quantity;
+        RDSLine."Qty. to Process" := quantity;
+        RDSLine."Quantity (Base)" := quantity;
+        RDSLine."Outstanding Qty. (Base)" := quantity;
+        RDSLine."Outstanding Qty. (Base)" := quantity;
+        RDSLine."Qty. Processed (Base)" := quantity;
         RDSLine."Direct Unit Cost" := directcost;
         RDSLine."Line Amount" := directcost;
         RDSLine."Expected Receipt Date" := dExpectedRecDate;
         RDSLine."Request Code" := requestcode;
+        RDSLine."Request Description" := rqtdesc;
+
+        if reqpurchdoc = 'Invoice' then begin
+            RDSLine."Request Purch. Document Type" := RDSLine."Request Purch. Document Type"::Invoice;
+        end;
+
         RDSLine."Dimension Set ID" := GetDimension(bankcode, tranxcode, investee, invtranx, aptype);
         RDSLine.Insert(true);
         exit(RDSLine."Line No.");
@@ -371,131 +560,7 @@ codeunit 50102 EquityWebServices
 
     #endregion
 
-    #region Local Procedure
 
-    procedure GetFullNameFromUserName(UserName: Code[50]): Text[100]
-    var
-        UserRec: Record User;
-    begin
-        UserRec.SetRange("User Name", UserName);
-        if UserRec.FindFirst() then
-            exit(UserRec."Full Name");
-
-        exit('');
-    end;
-
-    local procedure GetLastLineNo(vjournaltemplatename: Code[20]; vbatchname: Code[30]) rvLineNo: Integer
-    var
-        vGenJournalLine: Record "Gen. Journal Line";
-    begin
-        vGenJournalLine.RESET;
-        vGenJournalLine.SETFILTER("Journal Template Name", vjournaltemplatename);
-        vGenJournalLine.SETFILTER("Journal Batch Name", vbatchname);
-        IF vGenJournalLine.FINDLAST THEN
-            EXIT(vGenJournalLine."Line No.");
-        EXIT(0);
-    end;
-
-    [ServiceEnabled]
-    local procedure GetDimension(BankCode: Text; TranxType: Text; StockCode: Text; InvTranx: Text; APType: Text): Integer
-    begin
-        TempDimSetEntry.DELETEALL;
-
-        if BankCode <> '' then begin
-            TempDimSetEntry.INIT;
-            TempDimSetEntry.VALIDATE("Dimension Code", 'BANK');
-            TempDimSetEntry.VALIDATE("Dimension Value Code", BankCode);//Value 
-            TempDimSetEntry.INSERT;
-        end;
-
-        if TranxType <> '' then begin
-            TempDimSetEntry.INIT;
-            TempDimSetEntry.VALIDATE("Dimension Code", 'TRANX');//Dimension Code
-            TempDimSetEntry.VALIDATE("Dimension Value Code", TranxType);//Value 
-            TempDimSetEntry.INSERT;
-        end;
-
-        if StockCode <> '' then begin
-            TempDimSetEntry.INIT;
-            TempDimSetEntry.VALIDATE("Dimension Code", 'INVESTEE');//Dimension Code
-            TempDimSetEntry.VALIDATE("Dimension Value Code", StockCode);//Value 
-            TempDimSetEntry.INSERT;
-        end;
-
-        if InvTranx <> '' then begin
-            TempDimSetEntry.INIT;
-            TempDimSetEntry.VALIDATE("Dimension Code", 'INV_TRANX');//Dimension Code
-            TempDimSetEntry.VALIDATE("Dimension Value Code", InvTranx);//Value 
-            TempDimSetEntry.INSERT;
-        end;
-
-        if APType <> '' then begin
-            TempDimSetEntry.INIT;
-            TempDimSetEntry.VALIDATE("Dimension Code", 'A/P TYPE');//Dimension Code
-            TempDimSetEntry.VALIDATE("Dimension Value Code", APType);//Value 
-            TempDimSetEntry.INSERT;
-        end;
-
-        TempDimSetEntry.RESET;
-        NewDimSetID := DimMgt.GetDimensionSetID(TempDimSetEntry);
-
-        EXIT(NewDimSetID);
-    end;
-
-    local procedure GetAccountTypeEnum(accountTypeText: Text): Enum "Gen. Journal Account Type"
-    begin
-        case accountTypeText of
-            'Customer':
-                exit("Gen. Journal Account Type"::Customer);
-            'Vendor':
-                exit("Gen. Journal Account Type"::Vendor);
-            'Bank Account':
-                exit("Gen. Journal Account Type"::"Bank Account");
-            'G/L Account':
-                exit("Gen. Journal Account Type"::"G/L Account");
-            else
-                Error('Invalid account type: %1', accountTypeText);
-        end;
-    end;
-
-    local procedure AddDimension(var TempDimSetEntry: Record "Dimension Set Entry" temporary; dimCode: Code[20]; valueCode: Code[20])
-    begin
-        if valueCode = '' then
-            exit;
-
-        TempDimSetEntry.Init();
-        TempDimSetEntry.Validate("Dimension Code", dimCode);
-        TempDimSetEntry.Validate("Dimension Value Code", valueCode);
-        if TempDimSetEntry.Insert() then;
-    end;
-
-    local procedure CheckGenJournalBatchExists(
-        TemplateName: Code[10];
-        BatchName: Code[20];
-        NoSeries: Code[20];
-        PostingNoSeries: Code[20];
-        Description: Text)
-    begin
-        // Check if the General Journal Batch already exists
-        if not GenJournalBatch.Get(TemplateName, BatchName) then begin
-            // Initialize new General Journal Batch
-            GenJournalBatch.Init();
-            GenJournalBatch."Journal Template Name" := TemplateName;
-            GenJournalBatch.Name := BatchName;
-            GenJournalBatch.Description := Description;
-
-            // Assign No. Series based on the Template Name
-            GenJournalBatch."No. Series" := NoSeries;
-            GenJournalBatch."Posting No. Series" := PostingNoSeries;
-
-            // Assign Balancing Account Type
-            GenJournalBatch."Bal. Account Type" := GenJnlTemplate."Bal. Account Type";
-
-            // Insert the newly created General Journal Batch
-            GenJournalBatch.Insert(true);
-        end;
-    end;
-    #endregion
 
     #region DACON Handshake
     procedure DACONCashDiv(
