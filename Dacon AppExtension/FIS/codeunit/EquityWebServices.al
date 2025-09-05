@@ -10,9 +10,9 @@ codeunit 50102 EquityWebServices
         TempDimSetEntry: Record "Dimension Set Entry" temporary;
         OldDimSetID: Integer;
         NewDimSetID: Integer;
-#pragma warning disable AL0432
-        NoSeriesMgt: Codeunit "NoSeriesManagement";
-#pragma warning restore AL0432
+
+        NoSeriesMgt: Codeunit "No. Series";
+
         DimMgt: Codeunit "DimensionManagement";
         xPostingDate: Date;
     #endregion
